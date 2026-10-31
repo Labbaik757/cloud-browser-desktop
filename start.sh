@@ -61,8 +61,14 @@ done
 export DISPLAY=":${DISPLAY_NUM}"
 
 # ---- 6. Chrome restart loop (background) ----------------------------------
-# One window, 1280x720, about:blank. --single-process merges the
-# renderer into the browser process (saves ~100 MB on 512 MB RAM).
+# One window, 1280x720, about:blank. Normal multi-process mode:
+# --single-process segfaulted 10s after launch on Render (2026-10-31,
+# "Segmentation fault (core dumped)") and is a debug-only mode, so it
+# is NOT used. Multi-process costs ~100 MB more RAM but actually runs.
+# The loop is guarded with "|| true": start.sh runs under "set -e",
+# which used to kill this whole supervisor subshell the first time
+# Chrome exited non-zero, so Chrome was never relaunched after the
+# crash (that is why the desktop stayed black).
 # --disable-dev-shm-usage: /dev/shm in Docker is only 64 MB, Chrome
 # would crash on it; /tmp is used instead. --no-sandbox: required
 # because Chrome runs as root in the container.
@@ -71,7 +77,6 @@ export DISPLAY=":${DISPLAY_NUM}"
     echo "Starting Chrome..."
     google-chrome-stable \
       --no-sandbox \
-      --single-process \
       --disable-gpu \
       --disable-dev-shm-usage \
       --disable-extensions \
@@ -84,7 +89,7 @@ export DISPLAY=":${DISPLAY_NUM}"
       --window-size=1280,720 \
       --window-position=0,0 \
       --user-data-dir=/tmp/chrome-data \
-      about:blank
+      about:blank || true
     echo "Chrome exited; restarting in 2s."
     sleep 2
   done

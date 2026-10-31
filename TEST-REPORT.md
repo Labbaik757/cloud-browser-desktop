@@ -103,3 +103,29 @@ parent runs it next).
 6. Page loads but noVNC never connects → WebSocket through Render
    (assumption 4) or the VNC password prompt rejecting the value
    (remember: only the first 8 characters matter).
+
+
+## FIX 2026-10-31 — black screen, Chrome segfault + dead supervisor
+
+**Symptom:** deploy Live, noVNC page loads, VNC password accepted, but the
+remote desktop stayed completely black for ~10 min (proof task 9a9ae972).
+
+**Diagnosis (Render logs, full current run):** Xvfb, x11vnc and websockify
+all started healthy. Chrome started once at 05:59:16 PKT and segfaulted
+10 seconds later — `/app/start.sh: line 91: 17 Segmentation fault (core
+dumped) google-chrome-stable ... --single-process ... about:blank`. No
+"Chrome exited" line and no second "Starting Chrome..." in 4 hours of
+logs: the supervisor never relaunched Chrome. No "out of memory" or
+"killed" lines — no log evidence of an OOM kill. D-Bus, zygote OOM-score
+and crashpad cpufreq errors in the logs are container noise, not the
+cause. Render free-plan Metrics show limits (512 MB, 0.15 CPU) but no
+usage graphs, so memory use could not be verified from the dashboard.
+
+**Two bugs, both fixed in start.sh:**
+1. `--single-process` segfaults on this Chrome/container (it is a
+   debug-only mode, not supported for production) — removed; Chrome now
+   runs in normal multi-process mode (~100 MB more RAM, but it runs).
+2. `set -e` at the top of start.sh killed the supervisor subshell the
+   first time Chrome exited non-zero, so the restart loop died with the
+   first crash — the Chrome invocation is now guarded with `|| true`,
+   so the loop survives a crash and relaunches Chrome.

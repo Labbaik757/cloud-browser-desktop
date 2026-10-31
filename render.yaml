@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: cloud-browser-desktop
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /
+    envVars:
+      - key: VNC_PASSWORD
+        generateValue: true
